@@ -155,3 +155,4 @@ If you see an error about ports `5005` or `8085` being in use:
 
 **"Docker is not running"**
 Make sure the Docker Desktop app is open and the whale icon is visible in your taskbar/menu bar.
+ 
