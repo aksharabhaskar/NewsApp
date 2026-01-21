@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: newsapp-backend
+    ports:
+      - "5005:5005"
+    environment:
+      - NEWS_API_KEY=${NEWS_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.0-flash-exp}
+      - MODEL_PATH=${MODEL_PATH:-./models/model_2_attention.h5}
+    volumes:
+      - ./backend/models:/app/models
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./news-frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: http://localhost:5005
+    container_name: newsapp-frontend
+    ports:
+      - "8085:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+networks:
+  default:
+    name: newsapp-network
+
