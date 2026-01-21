@@ -1,148 +1,149 @@
 # NewsApp - AI-Verified News Feed
 
-A modern news aggregator that fetches news from NewsAPI.org and automatically filters out fake news using AI verification powered by OpenAI.
+A modern news aggregator that fetches news from NewsAPI.org and automatically filters out fake news using AI verification powered by Gemini.
 
 ## Features
 
-- 📰 Fetch latest news from NewsAPI.org
-- 🤖 **AI-powered fake news detection** - Automatically verifies each article using Gemini
-- ✅ Only displays verified or unverifiable news (filters out fake news)
-- 🏷️ Multiple categories (General, Top Headlines, India, Sports, Science, Entertainment, Health, Technology, Business)
-- 🔍 Search functionality
-- ♾️ Infinite scroll for seamless browsing
-- ⚡ Fast parallel verification (5 articles at a time)
-- 💾 Smart caching to avoid re-checking articles
-- 🎨 Clean, responsive React frontend
+- **AI-Powered Fake News Detection**: Automatically verifies each article against trusted sources (CNN, BBC, NYT, etc.) using Google Gemini.
+- **Verification Badge**: Only displays verified ("REAL") or unverifiable news. Filters out content flagged as "FAKE".
+- **Knowledge Graph Visualization**: Interactive force-directed graph (using D3/Canvas) showing entities (People, Orgs, Locations) and their relationships.
+- **AI News Chatbot**: Integrated conversational assistant that answers questions about specific articles using context from the knowledge graph.
+- **Multimodal Detection**: Uses a custom ML model combining **CLIP** image embeddings and **Node2Vec** graph embeddings to detect manipulated content.
+- **Optimized Performance**: Parallel verification (5 worker threads), smart in-memory caching, and batch processing to reduce latency.
+- **Comprehensive Coverage**: Categories include Top Headlines, Science, Technology, Business, Health, and Entertainment.
 
 ## How It Works
 
-1. **Fetch**: Retrieves 15 articles per page from NewsAPI.org
-2. **Verify**: Each article is verified in parallel using Gemini's reasoning model
-3. **Filter**: Only shows articles marked as "REAL" or "UNVERIFIABLE" (filters out "FAKE")
-4. **Display**: Shows ~10 verified articles with verification badges
-
-### Verification Process
-
-The AI verifier:
-- Searches trusted news sources (CNN, BBC, NYTimes, Reuters, etc.)
-- Cross-references the claims in the article
-- Returns: **REAL**, **FAKE**, or **UNVERIFIABLE**
-- Uses "low" reasoning effort for faster responses (~10-15 seconds per article)
-- Processes 5 articles in parallel (total ~15-20 seconds for all)
-
-## Quick Start (Automated Setup)
-
-**Prerequisites:**
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Must be installed and running)
-- [NewsAPI Key](https://newsapi.org/) (Free)
-- [Gemini API Key](https://aistudio.google.com/) (Free)
-
-### Windows (PowerShell)
-Right-click `setup.ps1` and select "Run with PowerShell", or run in terminal:
-```powershell
-./setup.ps1
+### 1. News Verification Pipeline
+```mermaid
+NewsAPI → Fetch Articles → Google News RSS Search → 
+Gemini AI Verification → Cache Results → Display to User
 ```
+- **Batch Processing**: Verifies articles in batches of 10 to minimize API calls.
+- **Cross-Referencing**: Checks claims against 5-10 trusted global news sources.
+- **Classification**: Returns `REAL`, `FAKE`, or `UNVERIFIABLE` with a confidence score.
 
-### Mac / Linux
-```bash
-chmod +x setup.sh
-./setup.sh
+### 2. Knowledge Graph Generation
+```mermaid
+Article Content → Entity Extraction (Gemini) → 
+RSS Enrichment → Wikipedia Integration → 
+Neo4j Database → Interactive Graph UI
 ```
+- **Entity Extraction**: Identifies key entities (Person, Org, Location, Date, Event).
+- **Enrichment**: Fetches related background info from Wikipedia and current RSS feeds.
+- **Storage**: Uses Neo4j graph database to store persistent relationships.
 
-This script will:
-1. Check your Docker installation
-2. Ask for your API Keys
-3. Create the configuration file automatically
-4. Build and start the application
+### 3. Multimodal Fake News Detection (Experimental)
+```mermaid
+Input:
+├─ Article Image → CLIP Encoder → 512D Vector
+└─ Knowledge Graph → Node2Vec → 512D Vector
 
-Once finished, open **http://localhost:8085** to view the app.
-
----
-
-## Manual Setup (Old)
-
-### Prerequisites
-
-- Docker Desktop
-- NewsAPI key
-- Gemini API key
-
-### Running with Docker
-
-1. Create a `.env` file in the root directory:
-```env
-NEWS_API_KEY=your_newsapi_key_here
-GEMINI_API_KEY=your_gemini_api_key_here
-GEMINI_MODEL=gemini-2.0-flash-exp
-MODEL_PATH=./models/model_2_attention.h5
+Concatenation: [512D + 512D] = 1024D Feature Vector
+Output: Neural Network Prediction (REAL vs FAKE)
 ```
-
-2. Run the application:
-```bash
-docker-compose up --build
-```
-
-3. Access the app:
-- Frontend: http://localhost:8085
-- Backend API: http://localhost:5005
-
-## Usage
-
-1. Start both backend and frontend servers
-2. Open **http://localhost:5173** in your browser
-3. Browse news by category or search for specific topics
-4. Articles are automatically verified - look for the ✓ Verified badge
-5. Scroll down to load more verified articles
-
-## API Endpoints
-
-- `GET /news?page=1&category=general&q=search` - Fetch and verify news
-  - `verify=false` - Optional: Disable verification for testing
-- `GET /verification-status` - View cache statistics
-- `POST /clear-cache` - Clear verification cache
-
-## Performance Optimization
-
-- **Parallel Processing**: Verifies 5 articles simultaneously
-- **Smart Caching**: Cached results prevent re-verification
-- **Low Reasoning Effort**: Balances accuracy with speed
-- **Limited Batch Size**: Processes 10 articles per load to reduce latency
-- **Trusted Domains**: Only searches reputable sources
 
 ## Tech Stack
 
-- **Frontend**: React 19, Vite
-- **Backend**: FastAPI, Python
-- **APIs**: NewsAPI.org, Gemini 2.0 Flash
-- **Verification**: Gemini API with web search
+### Frontend
+- **Framework**: React 19 + Vite
+- **Styling**: TailwindCSS v4 (Alpha) + Framer Motion
+- **Icons**: Lucide React
+- **Visualization**: HTML5 Canvas (custom graph engine)
 
-## Configuration
+### Backend
+- **Framework**: FastAPI (Python 3.8+)
+- **AI Models**: Google Gemini 2.0 Flash
+- **ML Frameworks**: TensorFlow/Keras, PyTorch components (for CLIP)
+- **Database**: Neo4j (Graph DB)
+- **Data Sources**: NewsAPI.org, Google News RSS, Wikipedia API
 
-Adjust these settings in `backend/app.py`:
+## Architecture & Optimization
 
-```python
-GEMINI_MODEL = "gemini-2.0-flash-exp"  # Gemini model
-max_workers = 5       # Parallel verification threads
-articles_to_verify = 10   # Articles per batch
+Designed for speed and cost-efficiency:
+- **Google News RSS**: Replaced expensive Gemini Search with free RSS for verification context (80% cost reduction).
+- **Smart Caching**: In-memory hash map prevents verifying the same URL twice.
+- **Parallel Execution**: Python `ThreadPoolExecutor` handles 5 concurrent verification tasks.
+- **Code Splitting**: React lazy loading and virtualization for smooth UI performance.
+
+---
+## Project Setup & Run Guide
+
+This guide will help you set up the NewsApp project on your local machine using the automated setup scripts.
+
+### Prerequisites
+
+Before running the scripts, ensure you have:
+
+1.  **Docker Desktop** installed and running. ([Download Here](https://www.docker.com/products/docker-desktop/))
+2.  **API Keys** ready:
+    *   **NewsAPI Key**: Get it for free at [newsapi.org](https://newsapi.org/)
+    *   **Gemini API Key**: Get it for free at [aistudio.google.com](https://aistudio.google.com/)
+
+---
+
+### Step 1: Run the Setup Script
+
+We have provided automated scripts to configure your environment (`.env`) and start the application.
+
+#### For Windows Users
+1.  Open the project folder.
+2.  Right-click on the file named `setup.ps1`.
+3.  Select **"Run with PowerShell"**.
+    *   *Alternatively, open a terminal in the folder and type: `.\setup.ps1`*
+
+#### For Mac & Linux Users
+1.  Open your terminal.
+2.  Navigate to the project folder (`cd path/to/folder`).
+3.  Run the following commands:
+    ```bash
+    chmod +x setup.sh
+    ./setup.sh
+    ```
+
+**What the script does:**
+*   Checks if Docker is installed and running.
+*   Asks for your **NewsAPI** and **Gemini API** keys (only the first time).
+*   Creates the `.env` configuration file automatically.
+*   Stops any conflicting containers (like old versions).
+*   Builds and starts the Docker containers.
+
+---
+
+### Step 2: Access the Application
+
+Once the script finishes and the terminal shows "Uvicorn running", you can access the app:
+
+*   **Frontend (News Feed):** [http://localhost:8085](http://localhost:8085)
+*   **Backend (API Docs):** [http://localhost:5005/docs](http://localhost:5005/docs)
+
+---
+
+### Management Commands
+
+#### Stopping the App
+To stop the application, go to the terminal where it's running and press:
+**`Ctrl + C`**
+
+Or run this command in a new terminal:
+```bash
+docker-compose down
 ```
 
-## Cost Considerations
+#### Restarting the App (Daily Usage)
+You don't need to run the setup script every time. To start the app again later, just run:
+```bash
+docker-compose up
+```
 
-- NewsAPI: Free tier allows 100 requests/day
-- Gemini: Free tier limits apply, or usage-based pricing on Google AI Studio
-- Caching reduces API calls significantly
+---
 
-## Troubleshooting
+### Troubleshooting
 
-**Slow verification?**
-- Reduce `max_workers` to 3
-- Change `reasoning_effort` to "low"
-- Reduce `articles_to_verify` to 5
+**"Port is already allocated"**
+If you see an error about ports `5005` or `8085` being in use:
+1.  Run `docker-compose down` to clear old containers.
+2.  Restart Docker Desktop.
 
-**Articles not showing?**
-- Check if OpenAI API key is valid
-- Verify NewsAPI key is active
-- Try `?verify=false` to bypass verification
-
-**Cache issues?**
-- Visit `/clear-cache` endpoint to reset
+**"Docker is not running"**
+Make sure the Docker Desktop app is open and the whale icon is visible in your taskbar/menu bar.
