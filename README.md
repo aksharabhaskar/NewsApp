@@ -12,43 +12,171 @@ A modern news aggregator that fetches news from NewsAPI.org and automatically fi
 - **Optimized Performance**: Parallel verification (5 worker threads), smart in-memory caching, and batch processing to reduce latency.
 - **Comprehensive Coverage**: Categories include Top Headlines, Science, Technology, Business, Health, and Entertainment.
 
-## How It Works
+## System Architecture
+
+High-level overview of the NewsApp ecosystem:
+
+```mermaid
+graph TD
+    subgraph Frontend [React Frontend]
+        UI[User Interface]
+        State[State Management]
+        API_Client[API Client]
+    end
+
+    subgraph Backend [FastAPI Backend]
+        API_Gateway[API Endpoints]
+        Worker[Background Workers]
+        
+        subgraph Services
+            Verif[Verification Service]
+            KG_Service[Knowledge Graph Service]
+            ML_Service[ML Detection Service]
+            Chat_Service[Chatbot Service]
+        end
+    end
+
+    subgraph Data [Data & AI]
+        Neo4j[("Neo4j Graph DB")]
+        Cache[("In-Memory Cache")]
+        Gemini[("Google Gemini AI")]
+        NewsAPI[("NewsAPI.org")]
+        GoogleRSS[("Google News RSS")]
+    end
+
+    UI --> State
+    State --> API_Client
+    API_Client -->|HTTP/REST| API_Gateway
+    API_Gateway --> Worker
+    Worker --> Verif
+    Worker --> KG_Service
+    Worker --> ML_Service
+    
+    Verif --> NewsAPI
+    Verif --> GoogleRSS
+    Verif <--> Cache
+    
+    KG_Service --> Gemini
+    KG_Service --> Neo4j
+    
+    Chat_Service --> Gemini
+    Chat_Service --> Neo4j
+```
+
+---
 
 ### 1. News Verification Pipeline
+The core logic for verifying news credibility:
+
 ```mermaid
 graph TD
-    A[NewsAPI] --> B[Fetch Articles]
-    B --> C[Google News RSS Search]
-    C --> D[Gemini AI Verification]
-    D --> E[Cache Results]
-    E --> F[Display to User]
+    Start([New Article]) --> CheckCache{In Cache?}
+    
+    CheckCache -->|Yes| ReturnCached[Return Cached Result]
+    CheckCache -->|No| FetchContext[Fetch Context]
+    
+    subgraph Context Gathering
+        FetchContext --> SearchRSS[Search Google News RSS]
+        FetchContext --> FetchMetadata[Extract Metadata]
+    end
+    
+    SearchRSS --> AI_Analysis
+    FetchMetadata --> AI_Analysis
+    
+    subgraph AI Processing [Gemini 2.0 Flash]
+        AI_Analysis[Analyze Claims vs Sources]
+        AI_Analysis --> Decision{Verdict?}
+    end
+    
+    Decision -->|Proven False| MarkFake[🔴 Mark as FAKE]
+    Decision -->|Corroborated| MarkReal[🟢 Mark as REAL]
+    Decision -->|Insufficient Info| MarkUnverified[⚪ Mark as UNVERIFIABLE]
+    
+    MarkFake --> SaveCache[Save to Cache]
+    MarkReal --> SaveCache
+    MarkUnverified --> SaveCache
+    
+    SaveCache --> End([Display to User])
 ```
-- **Batch Processing**: Verifies articles in batches of 10 to minimize API calls.
-- **Cross-Referencing**: Checks claims against 5-10 trusted global news sources.
-- **Classification**: Returns `REAL`, `FAKE`, or `UNVERIFIABLE` with a confidence score.
 
 ### 2. Knowledge Graph Generation
-```mermaid
-graph TD
-    A[Article Content] --> B[Entity Extraction - Gemini]
-    B --> C[RSS Enrichment]
-    B --> D[Wikipedia Integration]
-    C --> E[Neo4j Database]
-    D --> E
-    E --> F[Interactive Graph UI]
-```
-- **Entity Extraction**: Identifies key entities (Person, Org, Location, Date, Event).
-- **Enrichment**: Fetches related background info from Wikipedia and current RSS feeds.
-- **Storage**: Uses Neo4j graph database to store persistent relationships.
+How unstructured text is converted into a structured graph:
 
-### 3. Multimodal Fake News Detection (Experimental)
 ```mermaid
 graph TD
-    A[Article Image] -->|CLIP Encoder| B[512D Vector]
-    C[Knowledge Graph] -->|Node2Vec| D[512D Vector]
-    B --> E[Concatenation 1024D]
-    D --> E
-    E --> F[Neural Network Prediction]
+    Input([Article Text]) --> Extraction
+    
+    subgraph "Entity Extraction (Gemini)"
+        Extraction[Identify Entities] --> Classify[Classify Types]
+        Classify -->|Person, Org, Loc| Nodes[Create Nodes]
+    end
+    
+    subgraph "Enrichment Pipeline"
+        Nodes --> Wiki[Query Wikipedia API]
+        Nodes --> RSS[Fetch Related RSS]
+        Wiki --> EnrichedNodes[Enriched Metadata]
+    end
+    
+    subgraph "Graph Construction (Neo4j)"
+        EnrichedNodes --> MergeNodes[MERGE Nodes]
+        MergeNodes --> CreateRel[CREATE Relationships]
+        CreateRel --> Index[Update Indexes]
+    end
+    
+    Index --> Visualization([Interactive UI Graph])
+```
+
+### 3. Multimodal Fake News Detection
+Advanced experimental model fusing visual and structural data:
+
+```mermaid
+graph LR
+    subgraph Visual Input
+        Img[Article Image] --> CLIP[CLIP Encoder]
+        CLIP --> ImgVec[Image Vector (512D)]
+    end
+    
+    subgraph Structural Input
+        Graph[Knowledge Graph] --> Node2Vec[Node2Vec Algo]
+        Node2Vec --> GraphVec[Graph Vector (512D)]
+    end
+    
+    ImgVec --> Fusion((Concatenation))
+    GraphVec --> Fusion
+    
+    subgraph "Neural Network Classifier"
+        Fusion --> Dense1[Dense Layer 1024]
+        Dense1 --> Drop1[Dropout 0.3]
+        Drop1 --> Dense2[Dense Layer 512]
+        Dense2 --> Output{Softmax}
+    end
+    
+    Output -->|Prob > 0.8| Fake[FAKE]
+    Output -->|Prob < 0.8| Real[REAL]
+```
+
+### 4. Interactive Chatbot Logic
+How the chatbot answers context-aware questions:
+
+```mermaid
+graph TD
+    User([User Question]) --> Context
+    
+    subgraph "Context Retrieval"
+        Context[Get Article Context]
+        Context --> FetchGraph[Query Neo4j Graph]
+        Context --> FetchMeta[Get Article Metadata]
+    end
+    
+    FetchGraph --> Prompt
+    FetchMeta --> Prompt
+    
+    subgraph "LLM Reasoning"
+        Prompt[Construct Prompt] --> SendGemini[Send to Gemini 2.0]
+        SendGemini --> Generate[Generate Answer]
+    end
+    
+    Generate --> UI([Chat Response])
 ```
 
 ## Tech Stack
