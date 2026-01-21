@@ -16,8 +16,12 @@ A modern news aggregator that fetches news from NewsAPI.org and automatically fi
 
 ### 1. News Verification Pipeline
 ```mermaid
-NewsAPI → Fetch Articles → Google News RSS Search → 
-Gemini AI Verification → Cache Results → Display to User
+graph TD
+    A[NewsAPI] --> B[Fetch Articles]
+    B --> C[Google News RSS Search]
+    C --> D[Gemini AI Verification]
+    D --> E[Cache Results]
+    E --> F[Display to User]
 ```
 - **Batch Processing**: Verifies articles in batches of 10 to minimize API calls.
 - **Cross-Referencing**: Checks claims against 5-10 trusted global news sources.
@@ -25,9 +29,13 @@ Gemini AI Verification → Cache Results → Display to User
 
 ### 2. Knowledge Graph Generation
 ```mermaid
-Article Content → Entity Extraction (Gemini) → 
-RSS Enrichment → Wikipedia Integration → 
-Neo4j Database → Interactive Graph UI
+graph TD
+    A[Article Content] --> B[Entity Extraction - Gemini]
+    B --> C[RSS Enrichment]
+    B --> D[Wikipedia Integration]
+    C --> E[Neo4j Database]
+    D --> E
+    E --> F[Interactive Graph UI]
 ```
 - **Entity Extraction**: Identifies key entities (Person, Org, Location, Date, Event).
 - **Enrichment**: Fetches related background info from Wikipedia and current RSS feeds.
@@ -35,12 +43,12 @@ Neo4j Database → Interactive Graph UI
 
 ### 3. Multimodal Fake News Detection (Experimental)
 ```mermaid
-Input:
-├─ Article Image → CLIP Encoder → 512D Vector
-└─ Knowledge Graph → Node2Vec → 512D Vector
-
-Concatenation: [512D + 512D] = 1024D Feature Vector
-Output: Neural Network Prediction (REAL vs FAKE)
+graph TD
+    A[Article Image] -->|CLIP Encoder| B[512D Vector]
+    C[Knowledge Graph] -->|Node2Vec| D[512D Vector]
+    B --> E[Concatenation 1024D]
+    D --> E
+    E --> F[Neural Network Prediction]
 ```
 
 ## Tech Stack
