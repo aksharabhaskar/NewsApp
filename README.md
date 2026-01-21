@@ -17,50 +17,59 @@ A modern news aggregator that fetches news from NewsAPI.org and automatically fi
 High-level overview of the NewsApp ecosystem:
 
 ```mermaid
-graph TD
-    subgraph Frontend [React Frontend]
-        UI[User Interface]
-        State[State Management]
-        API_Client[API Client]
+graph TB
+    subgraph "Frontend Layer"
+        UI[React UI<br/>Vite + TailwindCSS]
+        Graph[D3 Knowledge Graph<br/>Canvas Visualization]
+        Chat[AI Chatbot Interface]
     end
-
-    subgraph Backend [FastAPI Backend]
-        API_Gateway[API Endpoints]
-        Worker[Background Workers]
-        
-        subgraph Services
-            Verif[Verification Service]
-            KG_Service[Knowledge Graph Service]
-            ML_Service[ML Detection Service]
-            Chat_Service[Chatbot Service]
-        end
+    
+    subgraph "Backend Layer - FastAPI"
+        API[REST API<br/>Port 5005]
+        Cache[In-Memory Cache<br/>Hash Map]
+        Workers[Thread Pool<br/>5 Workers]
     end
-
-    subgraph Data [Data & AI]
-        Neo4j[("Neo4j Graph DB")]
-        Cache[("In-Memory Cache")]
-        Gemini[("Google Gemini AI")]
-        NewsAPI[("NewsAPI.org")]
-        GoogleRSS[("Google News RSS")]
+    
+    subgraph "AI/ML Services"
+        Gemini[Gemini 2.0 Flash<br/>Verification + NER]
+        ML[Multimodal ML Model<br/>CLIP + Node2Vec]
     end
-
-    UI --> State
-    State --> API_Client
-    API_Client -->|HTTP/REST| API_Gateway
-    API_Gateway --> Worker
-    Worker --> Verif
-    Worker --> KG_Service
-    Worker --> ML_Service
     
-    Verif --> NewsAPI
-    Verif --> GoogleRSS
-    Verif <--> Cache
+    subgraph "Data Sources"
+        NewsAPI[NewsAPI.org<br/>Article Fetch]
+        RSS[Google News RSS<br/>Verification Context]
+        Wiki[Wikipedia API<br/>Entity Enrichment]
+    end
     
-    KG_Service --> Gemini
-    KG_Service --> Neo4j
+    subgraph "Storage"
+        Neo4j[(Neo4j Graph DB<br/>Entity Relationships)]
+    end
     
-    Chat_Service --> Gemini
-    Chat_Service --> Neo4j
+    UI -->|HTTP| API
+    Graph -->|WebSocket| API
+    Chat -->|HTTP| API
+    
+    API --> Cache
+    API --> Workers
+    Workers --> Gemini
+    Workers --> ML
+    
+    API --> NewsAPI
+    API --> RSS
+    API --> Wiki
+    API --> Neo4j
+    
+    Gemini -.->|Entity Data| Neo4j
+    
+    style UI fill:#60a5fa,stroke:#2563eb,stroke-width:2px,color:#fff
+    style Graph fill:#60a5fa,stroke:#2563eb,stroke-width:2px,color:#fff
+    style Chat fill:#60a5fa,stroke:#2563eb,stroke-width:2px,color:#fff
+    style API fill:#34d399,stroke:#059669,stroke-width:2px,color:#fff
+    style Cache fill:#fbbf24,stroke:#f59e0b,stroke-width:2px,color:#000
+    style Workers fill:#fbbf24,stroke:#f59e0b,stroke-width:2px,color:#000
+    style Gemini fill:#a78bfa,stroke:#7c3aed,stroke-width:2px,color:#fff
+    style ML fill:#a78bfa,stroke:#7c3aed,stroke-width:2px,color:#fff
+    style Neo4j fill:#f87171,stroke:#dc2626,stroke-width:2px,color:#fff
 ```
 
 ---
@@ -69,114 +78,143 @@ graph TD
 The core logic for verifying news credibility:
 
 ```mermaid
-graph TD
-    Start([New Article]) --> CheckCache{In Cache?}
+graph TB
+    Start([User Request]) --> Fetch[Fetch Articles<br/>from NewsAPI]
+    Fetch --> Check{Check<br/>Cache?}
+    Check -->|Hit| Cached[Return Cached Result]
+    Check -->|Miss| Batch[Batch Articles<br/>Groups of 10]
     
-    CheckCache -->|Yes| ReturnCached[Return Cached Result]
-    CheckCache -->|No| FetchContext[Fetch Context]
+    Batch --> Pool[Thread Pool Executor<br/>5 Concurrent Workers]
     
-    subgraph Context Gathering
-        FetchContext --> SearchRSS[Search Google News RSS]
-        FetchContext --> FetchMetadata[Extract Metadata]
-    end
+    Pool --> Worker1[Worker 1]
+    Pool --> Worker2[Worker 2]
+    Pool --> Worker3[Worker 3]
+    Pool --> Worker4[Worker 4]
+    Pool --> Worker5[Worker 5]
     
-    SearchRSS --> AI_Analysis
-    FetchMetadata --> AI_Analysis
+    Worker1 --> RSS1[Google News RSS<br/>Search Context]
+    Worker2 --> RSS2[Google News RSS<br/>Search Context]
+    Worker3 --> RSS3[Google News RSS<br/>Search Context]
+    Worker4 --> RSS4[Google News RSS<br/>Search Context]
+    Worker5 --> RSS5[Google News RSS<br/>Search Context]
     
-    subgraph AI Processing [Gemini 2.0 Flash]
-        AI_Analysis[Analyze Claims vs Sources]
-        AI_Analysis --> Decision{Verdict?}
-    end
+    RSS1 --> Gemini1[Gemini Verification<br/>Cross-check Sources]
+    RSS2 --> Gemini2[Gemini Verification<br/>Cross-check Sources]
+    RSS3 --> Gemini3[Gemini Verification<br/>Cross-check Sources]
+    RSS4 --> Gemini4[Gemini Verification<br/>Cross-check Sources]
+    RSS5 --> Gemini5[Gemini Verification<br/>Cross-check Sources]
     
-    Decision -->|Proven False| MarkFake[🔴 Mark as FAKE]
-    Decision -->|Corroborated| MarkReal[🟢 Mark as REAL]
-    Decision -->|Insufficient Info| MarkUnverified[⚪ Mark as UNVERIFIABLE]
+    Gemini1 --> Label1[REAL/FAKE/UNVERIFIABLE<br/>+ Confidence Score]
+    Gemini2 --> Label2[REAL/FAKE/UNVERIFIABLE<br/>+ Confidence Score]
+    Gemini3 --> Label3[REAL/FAKE/UNVERIFIABLE<br/>+ Confidence Score]
+    Gemini4 --> Label4[REAL/FAKE/UNVERIFIABLE<br/>+ Confidence Score]
+    Gemini5 --> Label5[REAL/FAKE/UNVERIFIABLE<br/>+ Confidence Score]
     
-    MarkFake --> SaveCache[Save to Cache]
-    MarkReal --> SaveCache
-    MarkUnverified --> SaveCache
+    Label1 --> Store[Store in Cache]
+    Label2 --> Store
+    Label3 --> Store
+    Label4 --> Store
+    Label5 --> Store
     
-    SaveCache --> End([Display to User])
+    Store --> Filter{Filter<br/>Results}
+    Cached --> Display
+    Filter -->|REAL or<br/>UNVERIFIABLE| Display[Display to User]
+    Filter -->|FAKE| Discard[Discard Article]
+    
+    style Start fill:#60a5fa,stroke:#2563eb,stroke-width:3px,color:#fff
+    style Display fill:#34d399,stroke:#059669,stroke-width:3px,color:#fff
+    style Discard fill:#f87171,stroke:#dc2626,stroke-width:3px,color:#fff
+    style Pool fill:#fbbf24,stroke:#f59e0b,stroke-width:2px,color:#000
+    style Store fill:#fbbf24,stroke:#f59e0b,stroke-width:2px,color:#000
+    style Cached fill:#34d399,stroke:#059669,stroke-width:2px,color:#fff
 ```
 
 ### 2. Knowledge Graph Generation
 How unstructured text is converted into a structured graph:
 
 ```mermaid
-graph TD
-    Input([Article Text]) --> Extraction
+graph TB
+    subgraph "Input Processing"
+        Article[Article Content<br/>Title + Body + URL]
+        Image[Article Image<br/>Optional]
+    end
     
-    subgraph "Entity Extraction (Gemini)"
-        Extraction[Identify Entities] --> Classify[Classify Types]
-        Classify -->|Person, Org, Loc| Nodes[Create Nodes]
+    subgraph "AI Entity Extraction"
+        Article --> Gemini[Gemini 2.0 Flash<br/>Named Entity Recognition]
+        Gemini --> Entities[Entities Identified:<br/>Person, Org, Location,<br/>Date, Event]
     end
     
     subgraph "Enrichment Pipeline"
-        Nodes --> Wiki[Query Wikipedia API]
-        Nodes --> RSS[Fetch Related RSS]
-        Wiki --> EnrichedNodes[Enriched Metadata]
+        Entities --> RSS[Google News RSS<br/>Related Articles]
+        Entities --> Wiki[Wikipedia API<br/>Background Info]
+        RSS --> Enrich[Enriched Context]
+        Wiki --> Enrich
     end
     
-    subgraph "Graph Construction (Neo4j)"
-        EnrichedNodes --> MergeNodes[MERGE Nodes]
-        MergeNodes --> CreateRel[CREATE Relationships]
-        CreateRel --> Index[Update Indexes]
+    subgraph "Graph Storage"
+        Enrich --> Neo4j[(Neo4j Database)]
+        Neo4j --> Nodes[Entity Nodes]
+        Neo4j --> Edges[Relationship Edges]
     end
     
-    Index --> Visualization([Interactive UI Graph])
+    subgraph "Visualization"
+        Nodes --> D3[D3.js + Canvas<br/>Force-Directed Graph]
+        Edges --> D3
+        D3 --> UI[Interactive UI<br/>Zoom, Pan, Click]
+    end
+    
+    subgraph "AI Chatbot"
+        Neo4j --> Context[Graph Context]
+        Context --> Chatbot[Gemini Chatbot<br/>Q&A about Articles]
+        UI -.->|User Question| Chatbot
+    end
+    
+    style Article fill:#60a5fa,stroke:#2563eb,stroke-width:2px,color:#fff
+    style Gemini fill:#a78bfa,stroke:#7c3aed,stroke-width:3px,color:#fff
+    style Neo4j fill:#f87171,stroke:#dc2626,stroke-width:3px,color:#fff
+    style D3 fill:#34d399,stroke:#059669,stroke-width:2px,color:#fff
+    style Chatbot fill:#a78bfa,stroke:#7c3aed,stroke-width:2px,color:#fff
 ```
 
 ### 3. Multimodal Fake News Detection
 Advanced experimental model fusing visual and structural data:
 
 ```mermaid
-graph LR
-    subgraph Visual Input
-        Img[Article Image] --> CLIP[CLIP Encoder]
-        CLIP --> ImgVec[Image Vector (512D)]
+graph TB
+    subgraph "Image Processing"
+        Img[Article Image<br/>RGB Format] --> CLIP[CLIP Encoder<br/>OpenAI Model]
+        CLIP --> ImgVec[Image Embedding<br/>512D Vector]
     end
     
-    subgraph Structural Input
-        Graph[Knowledge Graph] --> Node2Vec[Node2Vec Algo]
-        Node2Vec --> GraphVec[Graph Vector (512D)]
+    subgraph "Graph Processing"
+        KG[Knowledge Graph<br/>Neo4j Entities] --> N2V[Node2Vec<br/>Random Walk]
+        N2V --> GraphVec[Graph Embedding<br/>512D Vector]
     end
     
-    ImgVec --> Fusion((Concatenation))
-    GraphVec --> Fusion
-    
-    subgraph "Neural Network Classifier"
-        Fusion --> Dense1[Dense Layer 1024]
-        Dense1 --> Drop1[Dropout 0.3]
-        Drop1 --> Dense2[Dense Layer 512]
-        Dense2 --> Output{Softmax}
+    subgraph "Feature Fusion"
+        ImgVec --> Concat[Vector Concatenation]
+        GraphVec --> Concat
+        Concat --> Fused[Fused Features<br/>1024D Vector]
     end
     
-    Output -->|Prob > 0.8| Fake[FAKE]
-    Output -->|Prob < 0.8| Real[REAL]
-```
-
-### 4. Interactive Chatbot Logic
-How the chatbot answers context-aware questions:
-
-```mermaid
-graph TD
-    User([User Question]) --> Context
-    
-    subgraph "Context Retrieval"
-        Context[Get Article Context]
-        Context --> FetchGraph[Query Neo4j Graph]
-        Context --> FetchMeta[Get Article Metadata]
+    subgraph "Neural Network"
+        Fused --> FC1[Dense Layer<br/>512 units + ReLU]
+        FC1 --> Dropout[Dropout 0.5]
+        Dropout --> FC2[Dense Layer<br/>256 units + ReLU]
+        FC2 --> Output[Output Layer<br/>Sigmoid Activation]
     end
     
-    FetchGraph --> Prompt
-    FetchMeta --> Prompt
-    
-    subgraph "LLM Reasoning"
-        Prompt[Construct Prompt] --> SendGemini[Send to Gemini 2.0]
-        SendGemini --> Generate[Generate Answer]
+    subgraph "Prediction"
+        Output --> Pred{Threshold<br/>0.5}
+        Pred -->|>= 0.5| Real[REAL News<br/>High Confidence]
+        Pred -->|< 0.5| Fake[FAKE News<br/>Manipulated Content]
     end
     
-    Generate --> UI([Chat Response])
+    style CLIP fill:#a78bfa,stroke:#7c3aed,stroke-width:2px,color:#fff
+    style N2V fill:#a78bfa,stroke:#7c3aed,stroke-width:2px,color:#fff
+    style Concat fill:#fbbf24,stroke:#f59e0b,stroke-width:2px,color:#000
+    style Real fill:#34d399,stroke:#059669,stroke-width:3px,color:#fff
+    style Fake fill:#f87171,stroke:#dc2626,stroke-width:3px,color:#fff
 ```
 
 ## Tech Stack
